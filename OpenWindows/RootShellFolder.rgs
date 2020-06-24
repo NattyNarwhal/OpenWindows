@@ -1,0 +1,48 @@
+HKCR
+{
+    NoRemove CLSID
+    {
+        ForceRemove {E477F21A-D9F6-4B44-AD43-A95D622D2910} = s 'Open Windows'
+        {
+            InprocServer32 = s '%MODULE%'
+            {
+                val ThreadingModel = s 'Apartment'
+            }
+            val InfoTip = s 'Shows open Windows Explorer windows'
+            DefaultIcon = s '%MODULE%,0'
+            ShellFolder
+            {
+                val Attributes = d '4160749584'
+                val wantsFORPARSING = s ''
+            }
+        }
+    }
+}
+HKLM
+{
+    NoRemove Software
+    {
+        NoRemove Microsoft
+        {
+            NoRemove Windows
+            {
+                NoRemove CurrentVersion
+                {
+                    NoRemove Explorer
+                    {
+                        NoRemove MyComputer
+                        {
+                            NoRemove NameSpace
+                            {
+                                ForceRemove {E477F21A-D9F6-4B44-AD43-A95D622D2910}
+                                {
+                                    val 'Removal Message' = s '@%MODULE%,-300'
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

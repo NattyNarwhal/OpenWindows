@@ -1,0 +1,33 @@
+import "oaidl.idl";
+import "ocidl.idl";
+
+[
+	object,
+	uuid(F0281CB6-CF26-4053-9936-96D7EE602E5E),
+	
+	helpstring("IOpenWindowsRootShellFolder Interface"),
+	pointer_default(unique)
+]
+interface IOpenWindowsRootShellFolder : IUnknown
+{
+};
+
+[
+	uuid(72B8106C-7E36-4E68-B125-53C535BC4A9F),
+	version(1.0),
+	helpstring("OpenWindows 1.0 Type Library")
+]
+library OPENWINDOWSLib
+{
+	importlib("stdole32.tlb");
+	importlib("stdole2.tlb");
+
+	[
+		uuid(E477F21A-D9F6-4B44-AD43-A95D622D2910),
+		helpstring("OpenWindowsRootShellFolder Class")
+	]
+	coclass OpenWindowsRootShellFolder
+	{
+		[default] interface IOpenWindowsRootShellFolder;
+	};
+};
