@@ -97,7 +97,7 @@ long EnumerateExplorerWindows(COWItemList *list, HWND callerWindow)
 	for (i = 0; i < count; i++) {
 		VARIANT v ;
 		v.vt = VT_I4 ;
-        V_I4(&v) = i;
+		V_I4(&v) = i;
 
 		IDispatch *wba_disp;
 		IWebBrowserApp *wba;
@@ -105,6 +105,8 @@ long EnumerateExplorerWindows(COWItemList *list, HWND callerWindow)
 		BSTR locationUrl;
 		CString str;
 		COWItem item;
+		HWND window, parent;
+		SHANDLE_PTR windowPtr;
 
 		if (FAILED(windows->Item(v, &wba_disp))) {
 			ATLTRACE(_T(" ** Enumerate isn't an item i=%ld"), i);
@@ -124,12 +126,11 @@ long EnumerateExplorerWindows(COWItemList *list, HWND callerWindow)
 		// be included. (It'll display the path of the previous folder, or
 		// display this NSE when you refresh.)
 		TraceHwnd(callerWindow, _T("caller"));
-		SHANDLE_PTR windowPtr;
 		if (FAILED(wba->get_HWND(&windowPtr))) {
 			ATLTRACE(_T(" ** Enumerate failed to get the HWND for i=%ld"), i);
 			goto fail1;
 		}
-		HWND window = (HWND)windowPtr;
+		window = (HWND)windowPtr;
 		TraceHwnd((HWND)window, _T("received"));
 
 		ATLTRACE(_T(" ** Enumerate i=%ld callerHwnd=%ld vs. receivedHwnd %ld"),
@@ -143,7 +144,7 @@ long EnumerateExplorerWindows(COWItemList *list, HWND callerWindow)
 		// window is fetching, the direct parent may or may not be the
 		// expected CabinetNClass, so try to jump up to the top.
 		else {
-			HWND parent = GetAncestor(callerWindow, GA_ROOTOWNER);
+			parent = GetAncestor(callerWindow, GA_ROOTOWNER);
 			TraceHwnd(parent, _T("parent of caller"));
 			if (parent == window) {
 				ATLTRACE(_T(" ** Enumerate windows are the same (checking parent of caller) i=%ld"), i);
