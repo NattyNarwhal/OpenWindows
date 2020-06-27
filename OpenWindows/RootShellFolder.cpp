@@ -650,72 +650,32 @@ STDMETHODIMP COWRootShellFolder::GetDetailsEx(LPCITEMIDLIST pidl, const SHCOLUMN
 	ATLTRACE(_T("COWRootShellFolder(0x%08x)::GetDetailsEx(pscid->pid=%d) pidl=[%s]\n"), this, pscid->pid, PidlToString(pidl));
 
 #if defined(OW_PKEYS_SUPPORT)
-	PROPVARIANT var;
-	/* Vista required */
+	/* Vista required. It appears ItemNameDisplay and ItemPathDisplay come from their real FS representation. */
 	if (IsEqualPropertyKey(*pscid, PKEY_PropList_TileInfo))
-    {
+	{
 		ATLTRACE(_T(" ** GetDetailsEx: PKEY_PropList_TileInfo"));
-		if (SUCCEEDED(InitPropVariantFromString(_T("prop:System.ItemPathDisplay"), &var)))
-		{
-			PropVariantToVariant(&var, pv);
-			return S_OK;
-		}
-    }
+		return SUCCEEDED(InitVariantFromString(_T("prop:System.ItemPathDisplay"), pv));
+	}
 	else if (IsEqualPropertyKey(*pscid, PKEY_PropList_ExtendedTileInfo))
-    {
+	{
 		ATLTRACE(_T(" ** GetDetailsEx: PKEY_PropList_ExtendedTileInfo"));
-		if (SUCCEEDED(InitPropVariantFromString(_T("prop:System.ItemPathDisplay"), &var)))
-		{
-			PropVariantToVariant(&var, pv);
-			return S_OK;
-		}
-    }
+		return SUCCEEDED(InitVariantFromString(_T("prop:System.ItemPathDisplay"), pv));
+	}
 	else if (IsEqualPropertyKey(*pscid, PKEY_PropList_PreviewDetails))
-    {
+	{
 		ATLTRACE(_T(" ** GetDetailsEx: PKEY_PropList_PreviewDetails"));
-		if (SUCCEEDED(InitPropVariantFromString(_T("prop:System.ItemPathDisplay"), &var)))
-		{
-			PropVariantToVariant(&var, pv);
-			return S_OK;
-		}
-    }
+		return SUCCEEDED(InitVariantFromString(_T("prop:System.ItemPathDisplay"), pv));
+	}
 	else if (IsEqualPropertyKey(*pscid, PKEY_PropList_FullDetails))
-    {
+	{
 		ATLTRACE(_T(" ** GetDetailsEx: PKEY_PropList_FullDetails"));
-		if (SUCCEEDED(InitPropVariantFromString(_T("prop:System.ItemNameDisplay;System.ItemPathDisplay"), &var)))
-		{
-			PropVariantToVariant(&var, pv);
-			return S_OK;
-		}
-    }
+		return SUCCEEDED(InitVariantFromString(_T("prop:System.ItemNameDisplay;System.ItemPathDisplay"), pv));
+	}
 	else if (IsEqualPropertyKey(*pscid, PKEY_ItemType))
-    {
+	{
 		ATLTRACE(_T(" ** GetDetailsEx: PKEY_ItemType"));
-		if (SUCCEEDED(InitPropVariantFromString(_T("Directory"), &var)))
-		{
-			PropVariantToVariant(&var, pv);
-			return S_OK;
-		}
-    }
-	// XXX: Are these necessary?
-	else if (IsEqualPropertyKey(*pscid, PKEY_ItemNameDisplay))
-    {
-		ATLTRACE(_T(" ** GetDetailsEx: PKEY_ItemNameDisplay"));
-		if (SUCCEEDED(InitPropVariantFromString(COWItem::GetName(pidl), &var)))
-		{
-			PropVariantToVariant(&var, pv);
-			return S_OK;
-		}
-    }
-	else if (IsEqualPropertyKey(*pscid, PKEY_ItemPathDisplay))
-    {
-		ATLTRACE(_T(" ** GetDetailsEx: PKEY_ItemPathDisplay"));
-		if (SUCCEEDED(InitPropVariantFromString(COWItem::GetPath(pidl), &var)))
-		{
-			PropVariantToVariant(&var, pv);
-			return S_OK;
-		}
-    }
+		return SUCCEEDED(InitVariantFromString(_T("Directory"), pv));
+	}
 #endif
 
 	ATLTRACE(_T(" ** GetDetailsEx: Not implemented"));
