@@ -57,7 +57,7 @@ LPTSTR PidlToString(LPCITEMIDLIST pidl)
 		{
 #ifndef _UNICODE
 			char tmp[128];
-			mbstowcs((USHORT*)(pidl->mkid.abID)+4, tmp, 128);
+			mbstowcs((wchar_t*)(pidl->mkid.abID)+4, tmp, 128);
 			_tcscat(str, tmp);
 #else
 			_tcscat(str, (wchar_t*)(pidl->mkid.abID)+4);
@@ -650,31 +650,35 @@ STDMETHODIMP COWRootShellFolder::GetDetailsEx(LPCITEMIDLIST pidl, const SHCOLUMN
 	ATLTRACE(_T("COWRootShellFolder(0x%08x)::GetDetailsEx(pscid->pid=%d) pidl=[%s]\n"), this, pscid->pid, PidlToString(pidl));
 
 #if defined(OW_PKEYS_SUPPORT)
-	/* Vista required. It appears ItemNameDisplay and ItemPathDisplay come from their real FS representation. */
+	/*
+	 * Vista required. It appears ItemNameDisplay and ItemPathDisplay come
+	 * from their real FS representation. The API is also wide-only and is
+	 * only available on XP SP2+ on, so it won't harm 9x.
+	 */
 	if (IsEqualPropertyKey(*pscid, PKEY_PropList_TileInfo))
 	{
 		ATLTRACE(_T(" ** GetDetailsEx: PKEY_PropList_TileInfo"));
-		return SUCCEEDED(InitVariantFromString(_T("prop:System.ItemPathDisplay"), pv));
+		return SUCCEEDED(InitVariantFromString(L"prop:System.ItemPathDisplay", pv));
 	}
 	else if (IsEqualPropertyKey(*pscid, PKEY_PropList_ExtendedTileInfo))
 	{
 		ATLTRACE(_T(" ** GetDetailsEx: PKEY_PropList_ExtendedTileInfo"));
-		return SUCCEEDED(InitVariantFromString(_T("prop:System.ItemPathDisplay"), pv));
+		return SUCCEEDED(InitVariantFromString(L"prop:System.ItemPathDisplay", pv));
 	}
 	else if (IsEqualPropertyKey(*pscid, PKEY_PropList_PreviewDetails))
 	{
 		ATLTRACE(_T(" ** GetDetailsEx: PKEY_PropList_PreviewDetails"));
-		return SUCCEEDED(InitVariantFromString(_T("prop:System.ItemPathDisplay"), pv));
+		return SUCCEEDED(InitVariantFromString(L"prop:System.ItemPathDisplay", pv));
 	}
 	else if (IsEqualPropertyKey(*pscid, PKEY_PropList_FullDetails))
 	{
 		ATLTRACE(_T(" ** GetDetailsEx: PKEY_PropList_FullDetails"));
-		return SUCCEEDED(InitVariantFromString(_T("prop:System.ItemNameDisplay;System.ItemPathDisplay"), pv));
+		return SUCCEEDED(InitVariantFromString(L"prop:System.ItemNameDisplay;System.ItemPathDisplay", pv));
 	}
 	else if (IsEqualPropertyKey(*pscid, PKEY_ItemType))
 	{
 		ATLTRACE(_T(" ** GetDetailsEx: PKEY_ItemType"));
-		return SUCCEEDED(InitVariantFromString(_T("Directory"), pv));
+		return SUCCEEDED(InitVariantFromString(L"Directory", pv));
 	}
 #endif
 
