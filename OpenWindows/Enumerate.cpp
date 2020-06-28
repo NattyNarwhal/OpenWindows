@@ -53,15 +53,21 @@ BOOL IsExplorerWindow(IWebBrowserApp *wba)
 CString UriToDosPath(CString uri)
 {
 	DWORD size = INTERNET_MAX_URL_LENGTH;
-	CString str;
-#if _WIN32_IE >= 0x0500
-	PathCreateFromUrl(uri, str.GetBuffer(size), &size, NULL);
-#elif _WIN32_IE >= 0x0300 && _UNICODE
 #pragma comment(lib, "urlmon")
+	// Using the SHLWAPI function is tempting, but it's broken with fancy
+	// characters even with Unicode
+#ifdef _UNICODE
+	CString str;
 	CoInternetParseUrl(uri, PARSE_PATH_FROM_URL, 0, str.GetBuffer(size), size, &size, 0);
-#endif
 	str.ReleaseBuffer();
 	return str;
+#else
+	// XXX: still won't handle multi-byte well. consider just using Unicode
+	wchar_t strW[INTERNET_MAX_URL_LENGTH], uriW[INTERNET_MAX_URL_LENGTH];
+	MultiByteToWideChar(CP_OEMCP, NULL, uri, -1, uriW, INTERNET_MAX_URL_LENGTH);
+	CoInternetParseUrl(uriW, PARSE_PATH_FROM_URL, 0, strW, size, &size, 0);
+	return CString(strW);
+#endif
 }
 
 CString SimplifyName(CString path)

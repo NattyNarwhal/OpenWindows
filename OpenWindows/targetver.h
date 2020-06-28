@@ -14,7 +14,5 @@
 // We'll just assume Windows 2000 minreq to satisify ATL, but it should work
 // on NT 4 and 9x as well. (Maybe 0x0403 is a safer compromise?)
 #define _WIN32_WINNT 0x0500
-// Prefer IE5 since it means we can use a TCHAR func from SHLWAPI instead of
-// a wide-only one from URLMON. 95+ (or crazier, Alpha NT) can all handle IE5.
 #define _WIN32_IE 0x0500
 #endif
