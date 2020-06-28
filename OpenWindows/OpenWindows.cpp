@@ -25,7 +25,7 @@
 // dllmain.cpp : Defines the entry point for the DLL application.
 #include "stdafx.h"
 
-#if _MSVC_VER > 1200
+#if _MSC_VER > 1200
 #include "OpenWindows_h.h"
 #else
 // the IDL compiler on VC++6 puts it here instead. weird!
