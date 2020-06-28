@@ -41,8 +41,6 @@
 #include <windows.h>
 // Must be before the other shell headers when we have mean and lean
 #include <ShellAPI.h>
-// For getting the version of the SDK regardless of what we want
-#include <ntverp.h>
 
 #define _ATL_CSTRING_EXPLICIT_CONSTRUCTORS      // some CString constructors will be explicit
 
