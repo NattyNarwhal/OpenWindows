@@ -26,6 +26,8 @@
 
 #include "ShellItems.h"
 
+#pragma comment(lib, "shlwapi")
+
 CString PhysicalManifestationPath(void)
 {
 	// Workaround. See COWRootShellFolder::GetDisplayNameOf.
@@ -40,18 +42,24 @@ BOOL IsExplorerWindow(IWebBrowserApp *wba)
 {
 	BSTR appName;
 	wba->get_FullName(&appName);
-	CString appNameNormalized = CString(appName).MakeUpper();
+	CString appNameNormalized = CString(appName);
+	/* sep step because wtlstr doesn't return CString for mutators */
+	appNameNormalized.MakeUpper();
 	BOOL res = appNameNormalized.Find(_T("EXPLORER.EXE")) > -1;
 	SysFreeString(appName);
 	return res;
 }
 
-CString UriToDosPath(TCHAR *uri)
+CString UriToDosPath(CString uri)
 {
 	DWORD size = INTERNET_MAX_URL_LENGTH;
 	CString str;
-	/* XXX: PathCreateFromUrl would properly accept a TCHAR* */
+#if _WIN32_IE >= 0x0500
+	PathCreateFromUrl(uri, str.GetBuffer(size), &size, NULL);
+#elif _WIN32_IE >= 0x0300 && _UNICODE
+#pragma comment(lib, "urlmon")
 	CoInternetParseUrl(uri, PARSE_PATH_FROM_URL, 0, str.GetBuffer(size), size, &size, 0);
+#endif
 	str.ReleaseBuffer();
 	return str;
 }
@@ -158,7 +166,7 @@ long EnumerateExplorerWindows(COWItemList *list, HWND callerWindow)
 			goto fail2;
 		}
 
-		str = UriToDosPath(locationUrl);
+		str = UriToDosPath(CString(locationUrl));
 		if (str.GetLength() == 0) {
 			ATLTRACE(_T(" ** Enumerate empty path string i=%ld"), i);
 			goto fail3;
