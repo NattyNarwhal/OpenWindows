@@ -23,7 +23,12 @@
  */
 
 #include "stdafx.h"
+#if _MSVC_VER > 1200
 #include "OpenWindows_h.h"
+#else
+// the IDL compiler on VC++6 puts it here instead. weird!
+#include "OpenWindows.h"
+#endif
 #include "RootShellFolder.h"
 
 #include "RootShellView.h"
