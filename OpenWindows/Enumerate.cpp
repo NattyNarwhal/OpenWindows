@@ -62,11 +62,126 @@ void TraceHwndInner(HWND tracedWindow, TCHAR *desc)
 #define TraceHwnd(x, y)
 #endif
 
+static BOOL FolderItemStrategy(IWebBrowserApp *wba, int i, BSTR *nameBStr, BSTR *pathBStr)
+{
+	IDispatch *sfvd_disp;
+	IShellFolderViewDual *sfvd;
+	Folder *folder;
+	Folder2 *folder2;
+	FolderItem *selfItem;
+	BOOL ok;
+
+	ok = TRUE;
+
+	// This huge involved process boils down to:
+	// - get the scriptable shell view from the browser object (thank IE)
+	// - get the active folder from that, cast it into a newer interface
+	// - get the folder as an item from the casted version
+	// - get the name and path from the item
+	// Unfortunately, this requires quite a bit of COM casting :/
+	if (FAILED(wba->get_Document(&sfvd_disp))) {
+		ATLTRACE(_T(" ** Enumerate can't get document dispatch for i=%ld"), i);
+		ok = FALSE;
+		goto fail2;
+	}
+	if (FAILED(sfvd_disp->QueryInterface(IID_IShellFolderViewDual, (void**)&sfvd))) {
+		ATLTRACE(_T(" ** Enumerate isn't an IShellFolderViewDual i=%ld"), i);
+		ok = FALSE;
+		goto fail3;
+	}
+	if (FAILED(sfvd->get_Folder(&folder))) {
+		ATLTRACE(_T(" ** Enumerate can't get folder i=%ld"), i);
+		ok = FALSE;
+		goto fail4;
+	}
+	if (FAILED(folder->QueryInterface(IID_Folder2, (void**)&folder2))) {
+		ATLTRACE(_T(" ** Enumerate isn't a Folder2 i=%ld"), i);
+		ok = FALSE;
+		goto fail5;
+	}
+	// This part seems to fail on Me, possibly other 9x with 0xC0000005.
+	if (FAILED(folder2->get_Self(&selfItem))) {
+		ATLTRACE(_T(" ** Enumerate can't get FolderItem i=%ld"), i);
+		ok = FALSE;
+		goto fail6;
+	}
+	if (FAILED(selfItem->get_Name(nameBStr))) {
+		ATLTRACE(_T(" ** Enumerate doesn't have folder name i=%ld"), i);
+		ok = FALSE;
+		goto fail7;
+	}
+	if (FAILED(selfItem->get_Path(pathBStr))) {
+		ATLTRACE(_T(" ** Enumerate doesn't have folder path i=%ld"), i);
+		ok = FALSE;
+		goto fail8;
+	}
+fail8:
+	SysFreeString(*nameBStr);
+fail7:
+	selfItem->Release();
+fail6:
+	folder2->Release();
+fail5:
+	folder->Release();
+fail4:
+	sfvd->Release();
+fail3:
+	sfvd_disp->Release();
+fail2:
+	return ok;
+}
+
+static BSTR UriToDosPath(BSTR uri)
+{
+	DWORD size = INTERNET_MAX_URL_LENGTH;
+#pragma comment(lib, "urlmon")
+	// Using the SHLWAPI function is tempting, but it's broken with fancy
+	// characters even with Unicode
+	wchar_t strW[INTERNET_MAX_URL_LENGTH];
+	CoInternetParseUrl(uri, PARSE_PATH_FROM_URL, 0, strW, size, &size, 0);
+	return SysAllocString(strW);
+}
+
+static BSTR SimplifyName(BSTR path)
+{
+	wchar_t newPath[MAX_PATH];
+	wcsncpy(newPath, path, MAX_PATH);
+#pragma comment(lib, "shlwapi")
+	// Even 9x has the wide functions, because IE
+	PathStripPathW(newPath);
+	return SysAllocString(newPath);
+}
+
+static BOOL FileUriStrategy(IWebBrowserApp *wba, int i, BSTR *nameBStr, BSTR *pathBStr)
+{
+	BSTR locationUrl, name, path;
+	BOOL ok;
+
+	ok = TRUE;
+
+	if (FAILED(wba->get_LocationURL(&locationUrl))) {
+		ATLTRACE(_T(" ** Enumerate can't get location for i=%ld"), i);
+		ok = FALSE;
+		goto fail2;
+	}
+
+	path = UriToDosPath(locationUrl);
+	name = SimplifyName(path);
+	*pathBStr = path;
+	*nameBStr = name;
+
+	SysFreeString(locationUrl);
+fail2:
+	return ok;
+}
+
 /* TODO: Convert to ATL wrappers */
 long EnumerateExplorerWindows(COWItemList *list, HWND callerWindow)
 {
 	IShellWindows *windows;
 	long count, realCount, i;
+	CString physPath;
+	physPath = PhysicalManifestationPath();
 	realCount = 0;
 	if (FAILED(CoInitialize(NULL))) {
 		ATLTRACE(_T(" ** Enumerate can't init COM"));
@@ -84,12 +199,8 @@ long EnumerateExplorerWindows(COWItemList *list, HWND callerWindow)
 		v.vt = VT_I4 ;
 		V_I4(&v) = i;
 
-		IDispatch *wba_disp, *sfvd_disp;
+		IDispatch *wba_disp;
 		IWebBrowserApp *wba;
-		IShellFolderViewDual *sfvd;
-		Folder *folder;
-		Folder2 *folder2;
-		FolderItem *selfItem;
 		
 		BSTR pathBStr, nameBStr;
 		CString pathStr, nameStr;
@@ -141,54 +252,30 @@ long EnumerateExplorerWindows(COWItemList *list, HWND callerWindow)
 			}
 		}
 
-		// This huge involved process boils down to:
-		// - get the scriptable shell view from the browser object (thank IE)
-		// - get the active folder from that, cast it into a newer interface
-		// - get the folder as an item from the casted version
-		// - get the name and path from the item
-		// Unfortunately, this requires quite a bit of COM casting :/
-		if (FAILED(wba->get_Document(&sfvd_disp))) {
-			ATLTRACE(_T(" ** Enumerate can't get document dispatch for i=%ld"), i);
-			goto fail2;
-		}
-		if (FAILED(sfvd_disp->QueryInterface(IID_IShellFolderViewDual, (void**)&sfvd))) {
-			ATLTRACE(_T(" ** Enumerate isn't an IShellFolderViewDual i=%ld"), i);
-			goto fail3;
-		}
-		if (FAILED(sfvd->get_Folder(&folder))) {
-			ATLTRACE(_T(" ** Enumerate can't get folder i=%ld"), i);
-			goto fail4;
-		}
-		if (FAILED(folder->QueryInterface(IID_Folder2, (void**)&folder2))) {
-			ATLTRACE(_T(" ** Enumerate isn't a Folder2 i=%ld"), i);
-			goto fail5;
-		}
-		if (FAILED(folder2->get_Self(&selfItem))) {
-			ATLTRACE(_T(" ** Enumerate can't get FolderItem i=%ld"), i);
-			goto fail6;
-		}
-		if (FAILED(selfItem->get_Name(&nameBStr))) {
-			ATLTRACE(_T(" ** Enumerate doesn't have folder name i=%ld"), i);
-			goto fail7;
-		}
-		if (FAILED(selfItem->get_Path(&pathBStr))) {
-			ATLTRACE(_T(" ** Enumerate doesn't have folder path i=%ld"), i);
-			goto fail8;
+		// Unfortunately, while the folder item strategy is preferred,
+		// it has issues on Me. Fall back to the file:// URI strategy
+		// if it fails.
+		if (!FolderItemStrategy(wba, i, &nameBStr, &pathBStr)) {
+			ATLTRACE(_T(" ** Enumerate folder item strat failed i=%ld"), i);
+			if (!FileUriStrategy(wba, i, &nameBStr, &pathBStr)) {
+				ATLTRACE(_T(" ** Enumerate file URI strat failed (bail) i=%ld"), i);
+				goto fail2;
+			}
 		}
 
 		nameStr = CString(nameBStr);
 		pathStr = CString(pathBStr);
 		if (pathStr.GetLength() == 0) {
 			ATLTRACE(_T(" ** Enumerate empty path string i=%ld"), i);
-			goto fail8;
+			goto fail3;
 		}
-		else if (pathStr == PhysicalManifestationPath()) {
+		else if (pathStr == physPath) {
 			// I hate this workaround around a workaround. The manifestation
 			// path is used to give a (fake) real FS location for programs silly
 			// enough to require one. This means if you have multiple of our NSE
 			// though, you get ugly "Temp/" entries. Skip them if we encounter one.
 			ATLTRACE(_T(" ** Enumerate path is the manifestation path i=%ld"), i);
-			goto fail8;
+			goto fail3;
 		}
 
 		ATLTRACE(_T(" ** Enumerate caught i=%ld # %ld: %s <- %s"), i, realCount, nameStr, pathStr);
@@ -197,19 +284,9 @@ long EnumerateExplorerWindows(COWItemList *list, HWND callerWindow)
 		item.SetPath(pathBStr);
 		list->Add(item);
 
-fail8:
+fail3:
 		SysFreeString(nameBStr);
 		SysFreeString(pathBStr);
-fail7:
-		selfItem->Release();
-fail6:
-		folder2->Release();
-fail5:
-		folder->Release();
-fail4:
-		sfvd->Release();
-fail3:
-		sfvd_disp->Release();
 fail2:
 		wba->Release();
 fail1:
