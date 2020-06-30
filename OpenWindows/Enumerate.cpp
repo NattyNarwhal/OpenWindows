@@ -269,6 +269,16 @@ long EnumerateExplorerWindows(COWItemList *list, HWND callerWindow)
 			ATLTRACE(_T(" ** Enumerate empty path string i=%ld"), i);
 			goto fail3;
 		}
+		else if (pathBStr[0] == L':' && pathBStr[1] == L':') {
+			// This path is some shell namespace world stuff. This on its own
+			// isn't inherently wrong, but it seems a bit random (or not, but
+			// maybe just finicky about path syntax) if it'll actually point
+			// to the object, or be inert. Unless we figure out a good way
+			// to deal with this, for now, we can just ignore them.
+			// (Or make it toggleable?)
+			ATLTRACE(_T(" ** Enumerate skipping shell namespace i=%ld"), i);
+			goto fail3;
+		}
 		else if (pathStr == physPath) {
 			// I hate this workaround around a workaround. The manifestation
 			// path is used to give a (fake) real FS location for programs silly
