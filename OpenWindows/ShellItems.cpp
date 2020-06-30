@@ -66,8 +66,8 @@ ULONG COWItem::GetSize()
 	return   4
 		   + 2
 		   + 2
-		   + (_tcslen(m_Path)+1)*sizeof(OLECHAR)
-		   + (_tcslen(m_Name)+1)*sizeof(OLECHAR)
+		   + (wcslen(m_Path)+1)*sizeof(OLECHAR)
+		   + (wcslen(m_Name)+1)*sizeof(OLECHAR)
 		   ;
 }
 
@@ -76,26 +76,20 @@ void COWItem::CopyTo(void *pTarget)
 	*(DWORD*)pTarget = MAGIC;
 	*((USHORT*)pTarget+2) = 0;
 	*((USHORT*)pTarget+3) = m_Rank;
-#ifdef _UNICODE
 	wcscpy((OLECHAR*)pTarget+4, m_Path);
 	wcscpy((OLECHAR*)pTarget+4+wcslen(m_Path)+1, m_Name);
-#else
-	mbstowcs((OLECHAR*)pTarget+4, m_Path, strlen(m_Path)+1);
-	mbstowcs((OLECHAR*)pTarget+4+strlen(m_Path)+1, m_Name, strlen(m_Name)+1);
-#endif
-
 }
 
 //-------------------------------------------------------------------------------
 
-void COWItem::SetPath(LPCTSTR Path)
+void COWItem::SetPath(LPCWSTR Path)
 {
-	m_Path = Path;
+	wcsncpy(m_Path, Path, MAX_PATH);
 }
 
-void COWItem::SetName(LPCTSTR Name)
+void COWItem::SetName(LPCWSTR Name)
 {
-	m_Name = Name;
+	wcsncpy(m_Name, Name, MAX_PATH);
 }
 
 void COWItem::SetRank(USHORT Rank)

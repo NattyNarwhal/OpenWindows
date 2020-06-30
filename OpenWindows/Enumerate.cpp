@@ -193,8 +193,8 @@ long EnumerateExplorerWindows(COWItemList *list, HWND callerWindow)
 
 		ATLTRACE(_T(" ** Enumerate caught i=%ld # %ld: %s <- %s"), i, realCount, nameStr, pathStr);
 		item.SetRank(realCount++);
-		item.SetName(nameStr);
-		item.SetPath(pathStr);
+		item.SetName(nameBStr);
+		item.SetPath(pathBStr);
 		list->Add(item);
 
 fail8:

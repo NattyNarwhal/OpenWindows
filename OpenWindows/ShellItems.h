@@ -75,10 +75,10 @@ public:
 	// Used by clients to set data
 
 	// The target path
-	void SetPath(LPCTSTR Path);
+	void SetPath(LPCWSTR Path);
 
 	// The display name (may contain any chars)
-	void SetName(LPCTSTR Name);
+	void SetName(LPCWSTR Name);
 
 	// The rank (preferred items get low numbers, starting at 1)
 	void SetRank(USHORT Rank);
@@ -105,8 +105,12 @@ public:
 protected:
 	USHORT m_Padding; /* Pascal's example used an item type here, we don't care about that */
 	USHORT m_Rank;
-	CString m_Path;
-	CString m_Name;
+	// The old wtlstr CString is always TCHAR, not a templated version, and
+	// do we really want to reimplement that? For now, statically allocate
+	// MAX_PATH worth. On Windows 10, this can be larger, but we can truncate
+	// for now.
+	wchar_t m_Path[MAX_PATH];
+	wchar_t m_Name[MAX_PATH];
 };
 
 
