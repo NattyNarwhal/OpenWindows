@@ -26,8 +26,6 @@
 
 #include "ShellItems.h"
 
-#pragma comment(lib, "shlwapi")
-
 CString PhysicalManifestationPath(void)
 {
 	// Workaround. See COWRootShellFolder::GetDisplayNameOf.
@@ -48,33 +46,6 @@ BOOL IsExplorerWindow(IWebBrowserApp *wba)
 	BOOL res = appNameNormalized.Find(_T("EXPLORER.EXE")) > -1;
 	SysFreeString(appName);
 	return res;
-}
-
-CString UriToDosPath(CString uri)
-{
-	DWORD size = INTERNET_MAX_URL_LENGTH;
-#pragma comment(lib, "urlmon")
-	// Using the SHLWAPI function is tempting, but it's broken with fancy
-	// characters even with Unicode
-#ifdef _UNICODE
-	CString str;
-	CoInternetParseUrl(uri, PARSE_PATH_FROM_URL, 0, str.GetBuffer(size), size, &size, 0);
-	str.ReleaseBuffer();
-	return str;
-#else
-	// XXX: still won't handle multi-byte well. consider just using Unicode
-	wchar_t strW[INTERNET_MAX_URL_LENGTH], uriW[INTERNET_MAX_URL_LENGTH];
-	MultiByteToWideChar(CP_OEMCP, NULL, uri, -1, uriW, INTERNET_MAX_URL_LENGTH);
-	CoInternetParseUrl(uriW, PARSE_PATH_FROM_URL, 0, strW, size, &size, 0);
-	return CString(strW);
-#endif
-}
-
-CString SimplifyName(CString path)
-{
-	PathStripPath(path.GetBuffer(260));
-	path.ReleaseBuffer();
-	return path;
 }
 
 #if _DEBUG
@@ -113,11 +84,15 @@ long EnumerateExplorerWindows(COWItemList *list, HWND callerWindow)
 		v.vt = VT_I4 ;
 		V_I4(&v) = i;
 
-		IDispatch *wba_disp;
+		IDispatch *wba_disp, *sfvd_disp;
 		IWebBrowserApp *wba;
+		IShellFolderViewDual *sfvd;
+		Folder *folder;
+		Folder2 *folder2;
+		FolderItem *selfItem;
 		
-		BSTR locationUrl;
-		CString str;
+		BSTR pathBStr, nameBStr;
+		CString pathStr, nameStr;
 		COWItem item;
 		HWND window, parent;
 		SHANDLE_PTR windowPtr;
@@ -166,34 +141,75 @@ long EnumerateExplorerWindows(COWItemList *list, HWND callerWindow)
 			}
 		}
 
-		// XXX: Do we use the ShellFolderView in get_Document?
-		if (FAILED(wba->get_LocationURL(&locationUrl))) {
-			ATLTRACE(_T(" ** Enumerate can't get location for i=%ld"), i);
+		// This huge involved process boils down to:
+		// - get the scriptable shell view from the browser object (thank IE)
+		// - get the active folder from that, cast it into a newer interface
+		// - get the folder as an item from the casted version
+		// - get the name and path from the item
+		// Unfortunately, this requires quite a bit of COM casting :/
+		if (FAILED(wba->get_Document(&sfvd_disp))) {
+			ATLTRACE(_T(" ** Enumerate can't get document dispatch for i=%ld"), i);
 			goto fail2;
 		}
-
-		str = UriToDosPath(CString(locationUrl));
-		if (str.GetLength() == 0) {
-			ATLTRACE(_T(" ** Enumerate empty path string i=%ld"), i);
+		if (FAILED(sfvd_disp->QueryInterface(IID_IShellFolderViewDual, (void**)&sfvd))) {
+			ATLTRACE(_T(" ** Enumerate isn't an IShellFolderViewDual i=%ld"), i);
 			goto fail3;
 		}
-		else if (str == PhysicalManifestationPath()) {
+		if (FAILED(sfvd->get_Folder(&folder))) {
+			ATLTRACE(_T(" ** Enumerate can't get folder i=%ld"), i);
+			goto fail4;
+		}
+		if (FAILED(folder->QueryInterface(IID_Folder2, (void**)&folder2))) {
+			ATLTRACE(_T(" ** Enumerate isn't a Folder2 i=%ld"), i);
+			goto fail5;
+		}
+		if (FAILED(folder2->get_Self(&selfItem))) {
+			ATLTRACE(_T(" ** Enumerate can't get FolderItem i=%ld"), i);
+			goto fail6;
+		}
+		if (FAILED(selfItem->get_Name(&nameBStr))) {
+			ATLTRACE(_T(" ** Enumerate doesn't have folder name i=%ld"), i);
+			goto fail7;
+		}
+		if (FAILED(selfItem->get_Path(&pathBStr))) {
+			ATLTRACE(_T(" ** Enumerate doesn't have folder path i=%ld"), i);
+			goto fail8;
+		}
+
+		nameStr = CString(nameBStr);
+		pathStr = CString(pathBStr);
+		if (pathStr.GetLength() == 0) {
+			ATLTRACE(_T(" ** Enumerate empty path string i=%ld"), i);
+			goto fail8;
+		}
+		else if (pathStr == PhysicalManifestationPath()) {
 			// I hate this workaround around a workaround. The manifestation
 			// path is used to give a (fake) real FS location for programs silly
 			// enough to require one. This means if you have multiple of our NSE
 			// though, you get ugly "Temp/" entries. Skip them if we encounter one.
 			ATLTRACE(_T(" ** Enumerate path is the manifestation path i=%ld"), i);
-			goto fail3;
+			goto fail8;
 		}
 
-		ATLTRACE(_T(" ** Enumerate caught i=%ld # %ld: %s"), i, realCount, str);
+		ATLTRACE(_T(" ** Enumerate caught i=%ld # %ld: %s <- %s"), i, realCount, nameStr, pathStr);
 		item.SetRank(realCount++);
-		item.SetName(SimplifyName(str));
-		item.SetPath(str);
+		item.SetName(nameStr);
+		item.SetPath(pathStr);
 		list->Add(item);
 
+fail8:
+		SysFreeString(nameBStr);
+		SysFreeString(pathBStr);
+fail7:
+		selfItem->Release();
+fail6:
+		folder2->Release();
+fail5:
+		folder->Release();
+fail4:
+		sfvd->Release();
 fail3:
-		SysFreeString(locationUrl);
+		sfvd_disp->Release();
 fail2:
 		wba->Release();
 fail1:
