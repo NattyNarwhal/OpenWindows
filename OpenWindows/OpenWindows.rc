@@ -57,8 +57,8 @@ IDR_ROOTSHELLFOLDER     REGISTRY                "RootShellFolder.rgs"
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 1,3,0,1
- PRODUCTVERSION 1,3,0,1
+ FILEVERSION 1,4,0,1
+ PRODUCTVERSION 1,4,0,1
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -75,12 +75,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "Calvin Buckley"
             VALUE "FileDescription", "Namespace for opened Explorer windows"
-            VALUE "FileVersion", "1.3.0.1"
+            VALUE "FileVersion", "1.4.0.1"
             VALUE "InternalName", "OpenWind.dll"
             VALUE "LegalCopyright", "Copyright (C) Calvin Buckley 2020"
             VALUE "OriginalFilename", "OpenWind.dll"
             VALUE "ProductName", "Open Windows"
-            VALUE "ProductVersion", "1.3.0.1"
+            VALUE "ProductVersion", "1.4.0.1"
         END
     END
     BLOCK "VarFileInfo"
