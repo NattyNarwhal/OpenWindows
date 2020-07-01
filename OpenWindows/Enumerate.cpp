@@ -62,7 +62,7 @@ void TraceHwndInner(HWND tracedWindow, TCHAR *desc)
 #define TraceHwnd(x, y)
 #endif
 
-static BOOL FolderItemStrategy(IWebBrowserApp *wba, int i, BSTR *nameBStr, BSTR *pathBStr)
+static BOOL FolderItemStrategy(IWebBrowserApp *wba, int i, BSTR *pathBStr)
 {
 	IDispatch *sfvd_disp;
 	IShellFolderViewDual *sfvd;
@@ -105,18 +105,11 @@ static BOOL FolderItemStrategy(IWebBrowserApp *wba, int i, BSTR *nameBStr, BSTR 
 		ok = FALSE;
 		goto fail6;
 	}
-	if (FAILED(selfItem->get_Name(nameBStr))) {
-		ATLTRACE(_T(" ** Enumerate doesn't have folder name i=%ld"), i);
-		ok = FALSE;
-		goto fail7;
-	}
 	if (FAILED(selfItem->get_Path(pathBStr))) {
 		ATLTRACE(_T(" ** Enumerate doesn't have folder path i=%ld"), i);
 		ok = FALSE;
-		goto fail8;
+		goto fail7;
 	}
-fail8:
-	SysFreeString(*nameBStr);
 fail7:
 	selfItem->Release();
 fail6:
@@ -142,19 +135,9 @@ static BSTR UriToDosPath(BSTR uri)
 	return SysAllocString(strW);
 }
 
-static BSTR SimplifyName(BSTR path)
+static BOOL FileUriStrategy(IWebBrowserApp *wba, int i, BSTR *pathBStr)
 {
-	wchar_t newPath[MAX_PATH];
-	wcsncpy(newPath, path, MAX_PATH);
-#pragma comment(lib, "shlwapi")
-	// Even 9x has the wide functions, because IE
-	PathStripPathW(newPath);
-	return SysAllocString(newPath);
-}
-
-static BOOL FileUriStrategy(IWebBrowserApp *wba, int i, BSTR *nameBStr, BSTR *pathBStr)
-{
-	BSTR locationUrl, name, path;
+	BSTR locationUrl, path;
 	BOOL ok;
 
 	ok = TRUE;
@@ -166,9 +149,7 @@ static BOOL FileUriStrategy(IWebBrowserApp *wba, int i, BSTR *nameBStr, BSTR *pa
 	}
 
 	path = UriToDosPath(locationUrl);
-	name = SimplifyName(path);
 	*pathBStr = path;
-	*nameBStr = name;
 
 	SysFreeString(locationUrl);
 fail2:
@@ -255,19 +236,26 @@ long EnumerateExplorerWindows(COWItemList *list, HWND callerWindow)
 		// Unfortunately, while the folder item strategy is preferred,
 		// it has issues on Me. Fall back to the file:// URI strategy
 		// if it fails.
-		if (!FolderItemStrategy(wba, i, &nameBStr, &pathBStr)) {
+		if (!FolderItemStrategy(wba, i, &pathBStr)) {
 			ATLTRACE(_T(" ** Enumerate folder item strat failed i=%ld"), i);
-			if (!FileUriStrategy(wba, i, &nameBStr, &pathBStr)) {
+			if (!FileUriStrategy(wba, i, &pathBStr)) {
 				ATLTRACE(_T(" ** Enumerate file URI strat failed (bail) i=%ld"), i);
 				goto fail2;
 			}
+		}
+
+		// A common way to get the name, with any special flair Windows tends
+		// to put on it (like drive labels or the system a remote dir is on).
+		if (FAILED(wba->get_LocationName(&nameBStr))) {
+			ATLTRACE(_T(" ** Enumerate can't get name for i=%ld"), i);
+			goto fail3;
 		}
 
 		nameStr = CString(nameBStr);
 		pathStr = CString(pathBStr);
 		if (pathStr.GetLength() == 0) {
 			ATLTRACE(_T(" ** Enumerate empty path string i=%ld"), i);
-			goto fail3;
+			goto fail4;
 		}
 		else if (pathBStr[0] == L':' && pathBStr[1] == L':') {
 			// This path is some shell namespace world stuff. This on its own
@@ -277,7 +265,7 @@ long EnumerateExplorerWindows(COWItemList *list, HWND callerWindow)
 			// to deal with this, for now, we can just ignore them.
 			// (Or make it toggleable?)
 			ATLTRACE(_T(" ** Enumerate skipping shell namespace i=%ld"), i);
-			goto fail3;
+			goto fail4;
 		}
 		else if (pathStr == physPath) {
 			// I hate this workaround around a workaround. The manifestation
@@ -285,7 +273,7 @@ long EnumerateExplorerWindows(COWItemList *list, HWND callerWindow)
 			// enough to require one. This means if you have multiple of our NSE
 			// though, you get ugly "Temp/" entries. Skip them if we encounter one.
 			ATLTRACE(_T(" ** Enumerate path is the manifestation path i=%ld"), i);
-			goto fail3;
+			goto fail4;
 		}
 
 		ATLTRACE(_T(" ** Enumerate caught i=%ld # %ld: %s <- %s"), i, realCount, nameStr, pathStr);
@@ -294,8 +282,9 @@ long EnumerateExplorerWindows(COWItemList *list, HWND callerWindow)
 		item.SetPath(pathBStr);
 		list->Add(item);
 
-fail3:
+fail4:
 		SysFreeString(nameBStr);
+fail3:
 		SysFreeString(pathBStr);
 fail2:
 		wba->Release();
